@@ -95,7 +95,11 @@
           <h3 class="section-title">그룹 나누기</h3>
           <label class="field">
             <span>그룹당 인원수</span>
-            <input id="perGroup" type="number" min="1" value="4" />
+            <div class="stepper">
+              <button type="button" class="step-btn" id="perGroupMinus" aria-label="한 명 줄이기">−</button>
+              <input id="perGroup" type="number" min="1" value="4" inputmode="numeric" />
+              <button type="button" class="step-btn" id="perGroupPlus" aria-label="한 명 늘리기">+</button>
+            </div>
           </label>
           <p class="error" id="hostError"></p>
           <div class="actions">
