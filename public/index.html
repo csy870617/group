@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>교회 소그룹 편성</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 class="logo" id="homeBtn">⛪ 소그룹 편성</h1>
+    </header>
+
+    <main id="main">
+      <!-- 1) 시작 화면 -->
+      <section id="view-home" class="view active">
+        <div class="card hero">
+          <h2>교회 소그룹 편성</h2>
+          <p class="muted">사회자가 방을 만들면 4자리 비밀번호가 생깁니다.<br />
+            참가자는 비밀번호로 입장하고, 사회자가 랜덤으로 그룹을 나눕니다.</p>
+          <div class="actions">
+            <button class="btn primary lg" id="goHost">방 만들기 (사회자)</button>
+            <button class="btn lg" id="goJoin">방 입장 (참가자)</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2) 참가자 입장 화면 -->
+      <section id="view-join" class="view">
+        <div class="card">
+          <h2>방 입장</h2>
+          <label class="field">
+            <span>4자리 비밀번호</span>
+            <input id="joinCode" type="text" inputmode="numeric" pattern="[0-9]*"
+                   maxlength="4" placeholder="예: 1234" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>이름</span>
+            <input id="joinName" type="text" maxlength="20" placeholder="이름을 입력하세요" />
+          </label>
+          <label class="field">
+            <span>성별</span>
+            <div class="gender">
+              <label class="radio"><input type="radio" name="gender" value="male" /> 남성</label>
+              <label class="radio"><input type="radio" name="gender" value="female" /> 여성</label>
+            </div>
+          </label>
+          <p class="error" id="joinError"></p>
+          <div class="actions">
+            <button class="btn primary lg" id="doJoin">입장하기</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3) 사회자 화면 -->
+      <section id="view-host" class="view">
+        <div class="card">
+          <div class="code-banner">
+            <span class="muted">방 비밀번호</span>
+            <div class="code" id="hostCode">----</div>
+            <p class="muted small">참가자에게 이 4자리 번호를 알려주세요.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row between">
+            <h3>입장한 사람 <span class="badge" id="hostTotal">0</span></h3>
+            <div class="counts">
+              <span class="chip male" id="hostMale">남 0</span>
+              <span class="chip female" id="hostFemale">여 0</span>
+            </div>
+          </div>
+          <ul class="people" id="hostPeople"></ul>
+        </div>
+
+        <div class="card">
+          <h3>그룹 나누기</h3>
+          <label class="field">
+            <span>그룹당 인원수</span>
+            <input id="perGroup" type="number" min="1" value="4" />
+          </label>
+          <p class="error" id="hostError"></p>
+          <div class="actions">
+            <button class="btn primary lg" id="doMakeGroups">랜덤으로 그룹 나누기</button>
+            <button class="btn" id="doReset" hidden>다시 나누기</button>
+          </div>
+          <div id="hostGroups" class="groups"></div>
+        </div>
+      </section>
+
+      <!-- 4) 참가자 대기/결과 화면 -->
+      <section id="view-waiting" class="view">
+        <div class="card">
+          <div class="row between">
+            <h3 id="waitTitle">입장 완료!</h3>
+            <span class="chip" id="waitWho"></span>
+          </div>
+          <p class="muted" id="waitMsg">사회자가 그룹을 나눌 때까지 기다려 주세요…</p>
+          <div class="row between">
+            <span class="muted">현재 입장 인원</span>
+            <div class="counts">
+              <span class="chip" id="waitTotal">0명</span>
+              <span class="chip male" id="waitMale">남 0</span>
+              <span class="chip female" id="waitFemale">여 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="myGroupCard" hidden>
+          <h3>내 그룹 🎉</h3>
+          <div id="myGroup" class="groups"></div>
+        </div>
+
+        <div class="card" id="allGroupsCard" hidden>
+          <h3>전체 그룹</h3>
+          <div id="allGroups" class="groups"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot muted small">교회 소그룹 편성 · 남녀 비율을 맞춰 랜덤 편성합니다</footer>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
