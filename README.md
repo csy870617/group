@@ -6,6 +6,7 @@
 - **정적 사이트(서버 불필요)** + **Firebase Firestore(실시간 DB)** 구성
 - **GitHub Pages**로 온라인 배포 가능
 - 별도 서버를 운영하지 않아도 여러 사람이 각자 휴대폰/PC로 동시에 접속해 실시간으로 동작합니다
+- **여러 교회가 동시에 사용해도 방 번호가 겹치지 않습니다** (트랜잭션으로 코드를 원자적으로 선점)
 
 ## 기능
 
@@ -41,6 +42,11 @@
 5. **보안 규칙 적용**: 콘솔의 **Firestore Database → 규칙** 탭에 이 저장소의
    [`firestore.rules`](./firestore.rules) 내용을 붙여넣고 **게시**합니다.
    (또는 Firebase CLI로 `firebase deploy --only firestore:rules`)
+
+6. (선택) **오래된 방 자동 삭제(TTL)**: 콘솔의 **Firestore Database → TTL**
+   에서 컬렉션 그룹 `rooms`, 타임스탬프 필드 `expireAt` 으로 정책을 추가하면,
+   생성 후 12시간이 지난 방이 자동 삭제되어 4자리 코드 공간이 재사용됩니다.
+   (여러 교회가 장기간 사용해도 코드가 고갈되지 않습니다.)
 
 ---
 
@@ -84,11 +90,12 @@ npx serve .
 ## 데이터 구조 (Firestore)
 
 ```
-rooms/{code}                       // code = 4자리 비밀번호
+rooms/{code}                       // code = 4자리 비밀번호 (트랜잭션으로 고유 선점)
   ├─ code: "1234"
   ├─ perGroup: 4
   ├─ groups: null | [[{id,name,gender}, ...], ...]
   ├─ createdAt: timestamp
+  ├─ expireAt: timestamp           // TTL 정책으로 자동 삭제 (코드 재사용)
   └─ participants/{pid}            // 하위 컬렉션
         ├─ name: "홍길동"
         ├─ gender: "male" | "female"

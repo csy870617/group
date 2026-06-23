@@ -8,7 +8,9 @@ import {
   deleteDoc,
   collection,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
+  Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -279,24 +281,43 @@ function goHome() {
   showView("view-home");
 }
 
+// 방 유지 시간 (이 시간이 지나면 Firestore TTL 로 자동 삭제되어 코드가 재사용됨)
+const ROOM_TTL_HOURS = 12;
+
 async function createRoom() {
   $("#goHost").disabled = true;
   try {
-    let code;
-    for (let tries = 0; tries < 25; tries++) {
-      code = String(Math.floor(1000 + Math.random() * 9000)); // 항상 4자리
-      const snap = await getDoc(doc(db, "rooms", code));
-      if (!snap.exists()) break;
-      code = null;
+    // 여러 교회가 "동시에" 방을 만들어도 코드가 겹치지 않도록
+    // 트랜잭션으로 원자적으로 생성한다. 후보 코드가 이미 있으면
+    // 다른 코드로 다시 시도한다.
+    let code = null;
+    for (let tries = 0; tries < 30; tries++) {
+      const candidate = String(Math.floor(1000 + Math.random() * 9000)); // 항상 4자리
+      const ref = doc(db, "rooms", candidate);
+      try {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          if (snap.exists()) {
+            const err = new Error("CODE_TAKEN");
+            err.code = "CODE_TAKEN";
+            throw err;
+          }
+          tx.set(ref, {
+            code: candidate,
+            groups: null,
+            perGroup: 4,
+            createdAt: serverTimestamp(),
+            expireAt: Timestamp.fromMillis(Date.now() + ROOM_TTL_HOURS * 3600 * 1000),
+          });
+        });
+        code = candidate; // 트랜잭션 성공 = 이 코드를 선점함
+        break;
+      } catch (e) {
+        if (e && e.code === "CODE_TAKEN") continue; // 다른 코드로 재시도
+        throw e; // 그 외 오류는 그대로 전달
+      }
     }
-    if (!code) throw new Error("빈 방 번호를 찾지 못했습니다. 다시 시도해 주세요.");
-
-    await setDoc(doc(db, "rooms", code), {
-      code,
-      groups: null,
-      perGroup: 4,
-      createdAt: serverTimestamp(),
-    });
+    if (!code) throw new Error("사용 가능한 방 번호를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.");
 
     state.role = "host";
     state.code = code;
