@@ -407,9 +407,13 @@ async function resetGroups() {
 // ─────────────────────────────────────────────────────────────
 // 이벤트 바인딩
 // ─────────────────────────────────────────────────────────────
-$("#homeBtn").addEventListener("click", () => {
+function leaveToHome() {
   if (db) goHome();
-});
+}
+$("#homeBtn").addEventListener("click", leaveToHome);
+$("#hostClose").addEventListener("click", leaveToHome);
+$("#joinClose").addEventListener("click", leaveToHome);
+$("#waitClose").addEventListener("click", leaveToHome);
 $("#goHost").addEventListener("click", createRoom);
 $("#goJoin").addEventListener("click", () => showView("view-join"));
 $("#doJoin").addEventListener("click", joinRoom);
