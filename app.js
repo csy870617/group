@@ -3,6 +3,7 @@ import {
   getFirestore,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -138,32 +139,52 @@ function groupsFromStore(raw) {
 // ─────────────────────────────────────────────────────────────
 // 공통: 방 구독 시작 (사회자/참가자 공용)
 // ─────────────────────────────────────────────────────────────
+// 실시간 리스너 오류(권한·네트워크 등) 안내
+function showConnectionError(e) {
+  console.error("Firestore 리스너 오류:", e);
+  const msg = "연결 오류가 발생했습니다. 새로고침 해 주세요.";
+  if (state.role === "host") $("#hostError").textContent = msg;
+  else if (state.role === "participant") $("#waitMsg").textContent = msg;
+}
+
 function subscribeRoom(code) {
   teardownListeners();
   const roomRef = doc(db, "rooms", code);
 
-  unsubRoom = onSnapshot(roomRef, (snap) => {
-    if (!snap.exists()) {
-      // 방이 사라짐 (사회자가 종료)
-      if (state.role === "participant") {
-        alert("방이 종료되었습니다.");
+  unsubRoom = onSnapshot(
+    roomRef,
+    (snap) => {
+      if (!snap.exists()) {
+        // 방이 사라짐 (사회자가 종료)
+        if (state.role === "participant") {
+          alert("방이 종료되었습니다.");
+        }
+        goHome();
+        return;
       }
-      goHome();
-      return;
-    }
-    const data = snap.data();
-    state.groups = groupsFromStore(data.groups);
-    if (typeof data.perGroup === "number") $("#perGroup").value = data.perGroup;
-    render();
-  });
+      const data = snap.data();
+      state.groups = groupsFromStore(data.groups);
+      // 호스트가 입력칸을 조작 중일 때는 스냅샷이 값을 덮어쓰지 않는다
+      const pg = $("#perGroup");
+      if (typeof data.perGroup === "number" && document.activeElement !== pg) {
+        pg.value = data.perGroup;
+      }
+      render();
+    },
+    showConnectionError
+  );
 
-  unsubParticipants = onSnapshot(collection(db, "rooms", code, "participants"), (snap) => {
-    const list = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-    list.sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
-    state.participants = list;
-    render();
-  });
+  unsubParticipants = onSnapshot(
+    collection(db, "rooms", code, "participants"),
+    (snap) => {
+      const list = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
+      state.participants = list;
+      render();
+    },
+    showConnectionError
+  );
 }
 
 function counts() {
@@ -333,6 +354,15 @@ async function createRoom() {
     }
     if (!code) throw new Error("사용 가능한 방 번호를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.");
 
+    // 코드 재사용 시, 이전 모임의 참가자 문서가 하위 컬렉션에 남아 있을 수 있다.
+    // (Firestore 는 문서를 지워도 하위 컬렉션을 지우지 않음) → 새 방을 위해 정리한다.
+    try {
+      const stale = await getDocs(collection(db, "rooms", code, "participants"));
+      await Promise.all(stale.docs.map((d) => deleteDoc(d.ref)));
+    } catch (e) {
+      console.warn("이전 참가자 정리 실패(무시하고 진행):", e);
+    }
+
     state.role = "host";
     state.code = code;
     state.participantId = null;
@@ -392,21 +422,25 @@ async function joinRoom() {
 }
 
 async function makeGroups() {
-  const perGroup = Number($("#perGroup").value);
+  const perGroup = parseInt($("#perGroup").value, 10);
   const err = $("#hostError");
   err.textContent = "";
-  if (!Number.isFinite(perGroup) || perGroup < 1) {
+  if (!Number.isInteger(perGroup) || perGroup < 1) {
     return (err.textContent = "그룹당 인원수를 올바르게 입력해 주세요.");
   }
   if (state.participants.length === 0) {
     return (err.textContent = "입장한 참가자가 없습니다.");
   }
 
-  const groups = makeBalancedGroups(state.participants, perGroup);
+  const btn = $("#doMakeGroups");
+  btn.disabled = true;
   try {
+    const groups = makeBalancedGroups(state.participants, perGroup);
     await updateDoc(doc(db, "rooms", state.code), { groups: groupsForStore(groups), perGroup });
   } catch (e) {
     err.textContent = "그룹 편성 실패: " + (e.message || e);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -477,33 +511,40 @@ $("#joinCode").addEventListener("input", (e) => {
   }
   if (!saved.code) return;
 
-  const snap = await getDoc(doc(db, "rooms", saved.code));
-  if (!snap.exists()) {
-    clearSession();
-    return;
-  }
-
-  if (saved.role === "host") {
-    state.role = "host";
-    state.code = saved.code;
-    $("#hostCode").textContent = saved.code;
-    showView("view-host");
-    subscribeRoom(saved.code);
-  } else if (saved.role === "participant" && saved.participantId) {
-    // 참가자 문서가 아직 있는지 확인
-    const pSnap = await getDoc(
-      doc(db, "rooms", saved.code, "participants", saved.participantId)
-    );
-    if (!pSnap.exists()) {
+  try {
+    const snap = await getDoc(doc(db, "rooms", saved.code));
+    if (!snap.exists()) {
       clearSession();
       return;
     }
-    const me = pSnap.data();
-    state.role = "participant";
-    state.code = saved.code;
-    state.participantId = saved.participantId;
-    $("#waitWho").textContent = me.name + " · " + (genderLabel[me.gender] || "");
-    showView("view-waiting");
-    subscribeRoom(saved.code);
+
+    if (saved.role === "host") {
+      state.role = "host";
+      state.code = saved.code;
+      $("#hostCode").textContent = saved.code;
+      showView("view-host");
+      subscribeRoom(saved.code);
+    } else if (saved.role === "participant" && saved.participantId) {
+      // 참가자 문서가 아직 있는지 확인
+      const pSnap = await getDoc(
+        doc(db, "rooms", saved.code, "participants", saved.participantId)
+      );
+      if (!pSnap.exists()) {
+        clearSession();
+        return;
+      }
+      const me = pSnap.data();
+      state.role = "participant";
+      state.code = saved.code;
+      state.participantId = saved.participantId;
+      $("#waitWho").textContent = me.name + " · " + (genderLabel[me.gender] || "");
+      showView("view-waiting");
+      subscribeRoom(saved.code);
+    } else {
+      // 역할/식별자가 불완전한 깨진 세션 → 정리
+      clearSession();
+    }
+  } catch (e) {
+    console.error("세션 복원 실패:", e);
   }
 })();
