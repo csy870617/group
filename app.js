@@ -467,7 +467,7 @@ $("#perGroupMinus").addEventListener("click", () => stepPerGroup(-1));
 $("#perGroupPlus").addEventListener("click", () => stepPerGroup(1));
 
 // 초대하기 — 기기 기본 공유(Web Share API), 미지원 시 링크 복사로 폴백
-const INVITE_URL = "https://csy870617.github.io/faiths/";
+const INVITE_URL = "https://csy870617.github.io/group/";
 async function invite() {
   const text = state.code
     ? `교회 소그룹 편성에 참여하세요!\n방 비밀번호: ${state.code}`
