@@ -441,6 +441,30 @@ function stepPerGroup(delta) {
 }
 $("#perGroupMinus").addEventListener("click", () => stepPerGroup(-1));
 $("#perGroupPlus").addEventListener("click", () => stepPerGroup(1));
+
+// 초대하기 — 기기 기본 공유(Web Share API), 미지원 시 링크 복사로 폴백
+const INVITE_URL = "https://csy870617.github.io/faiths/";
+async function invite() {
+  const text = state.code
+    ? `교회 소그룹 편성에 참여하세요!\n방 비밀번호: ${state.code}`
+    : "교회 소그룹 편성에 참여하세요!";
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "교회 소그룹 편성", text, url: INVITE_URL });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return; // 사용자가 공유를 취소함
+  }
+  // 공유 API 미지원 → 클립보드 복사, 그것도 안 되면 새 창으로 링크 열기
+  try {
+    await navigator.clipboard.writeText(`${text}\n${INVITE_URL}`);
+    alert("초대 내용이 복사되었습니다.\n" + INVITE_URL);
+  } catch {
+    window.open(INVITE_URL, "_blank", "noopener");
+  }
+}
+$("#goInvite").addEventListener("click", invite);
 $("#doJoin").addEventListener("click", joinRoom);
 $("#doMakeGroups").addEventListener("click", makeGroups);
 $("#doReset").addEventListener("click", resetGroups);
