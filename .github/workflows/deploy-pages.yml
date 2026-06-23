@@ -6,8 +6,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - claude/epic-carson-1z09cz
       - main
+      - 'claude/**'
   workflow_dispatch:
 
 permissions:
