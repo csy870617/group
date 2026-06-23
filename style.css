@@ -22,6 +22,8 @@ body {
   line-height: 1.5;
 }
 
+* { box-sizing: border-box; }
+
 .app {
   max-width: 720px;
   margin: 0 auto;
@@ -67,6 +69,13 @@ main { flex: 1; }
 
 h2, h3 { margin: 0 0 12px; }
 
+code {
+  background: #eef0f5;
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 0.9em;
+}
+
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
 
@@ -92,6 +101,7 @@ h2, h3 { margin: 0 0 12px; }
 }
 .btn:hover { border-color: #cbd0d8; }
 .btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.6; cursor: default; }
 .btn.lg { padding: 14px 18px; font-weight: 600; }
 .btn.primary {
   background: var(--primary);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>교회 소그룹 편성</title>
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <div class="app">
@@ -13,8 +13,19 @@
     </header>
 
     <main id="main">
+      <!-- 설정 안내 (Firebase 미설정 시) -->
+      <section id="view-setup" class="view">
+        <div class="card">
+          <h2>⚙️ Firebase 설정이 필요합니다</h2>
+          <p class="muted">
+            <code>firebase-config.js</code> 파일에 본인의 Firebase 프로젝트 설정을 입력해 주세요.
+            자세한 방법은 <code>README.md</code>를 참고하세요.
+          </p>
+        </div>
+      </section>
+
       <!-- 1) 시작 화면 -->
-      <section id="view-home" class="view active">
+      <section id="view-home" class="view">
         <div class="card hero">
           <h2>교회 소그룹 편성</h2>
           <p class="muted">사회자가 방을 만들면 4자리 비밀번호가 생깁니다.<br />
@@ -122,7 +133,6 @@
     <footer class="foot muted small">교회 소그룹 편성 · 남녀 비율을 맞춰 랜덤 편성합니다</footer>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

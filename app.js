@@ -1,0 +1,446 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  onSnapshot,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+// ─────────────────────────────────────────────────────────────
+// DOM 헬퍼
+// ─────────────────────────────────────────────────────────────
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+function showView(id) {
+  $$(".view").forEach((v) => v.classList.remove("active"));
+  $("#" + id).classList.add("active");
+}
+
+const genderLabel = { male: "남", female: "여", other: "기타" };
+const genderDotClass = (g) => (g === "male" ? "male" : g === "female" ? "female" : "other");
+
+// ─────────────────────────────────────────────────────────────
+// Firebase 초기화 (설정이 비어 있으면 안내 화면)
+// ─────────────────────────────────────────────────────────────
+let db = null;
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
+  showView("view-setup");
+} else {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  showView("view-home");
+}
+
+// ─────────────────────────────────────────────────────────────
+// 상태 & 리스너 정리
+// ─────────────────────────────────────────────────────────────
+const state = {
+  role: null, // 'host' | 'participant'
+  code: null,
+  participantId: null,
+  participants: [], // [{id, name, gender}]
+  groups: null,
+};
+
+let unsubRoom = null;
+let unsubParticipants = null;
+
+function teardownListeners() {
+  if (unsubRoom) unsubRoom();
+  if (unsubParticipants) unsubParticipants();
+  unsubRoom = null;
+  unsubParticipants = null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 세션 저장 (새로고침 대비)
+// ─────────────────────────────────────────────────────────────
+function saveSession() {
+  sessionStorage.setItem(
+    "cg",
+    JSON.stringify({ role: state.role, code: state.code, participantId: state.participantId })
+  );
+}
+function clearSession() {
+  sessionStorage.removeItem("cg");
+}
+
+// ─────────────────────────────────────────────────────────────
+// 그룹 편성 알고리즘 (남녀 비율을 맞춰 랜덤 분배)
+// ─────────────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function makeBalancedGroups(participants, perGroup) {
+  const total = participants.length;
+  if (total === 0) return [];
+
+  const size = Math.max(1, Math.floor(perGroup));
+  const numGroups = Math.max(1, Math.round(total / size));
+  const groups = Array.from({ length: numGroups }, () => []);
+
+  const males = shuffle(participants.filter((p) => p.gender === "male"));
+  const females = shuffle(participants.filter((p) => p.gender === "female"));
+  const others = shuffle(
+    participants.filter((p) => p.gender !== "male" && p.gender !== "female")
+  );
+
+  // 남성을 라운드로빈으로 배정
+  males.forEach((p, i) => groups[i % numGroups].push(p));
+
+  // 여성은 남성이 끝난 위치에서 이어 배정 (한쪽 성별 쏠림 방지)
+  const femaleOffset = males.length % numGroups;
+  females.forEach((p, i) => groups[(femaleOffset + i) % numGroups].push(p));
+
+  // 기타/미선택 인원은 가장 적은 그룹부터 채움
+  others.forEach((p) => {
+    let minIdx = 0;
+    for (let g = 1; g < numGroups; g++) {
+      if (groups[g].length < groups[minIdx].length) minIdx = g;
+    }
+    groups[minIdx].push(p);
+  });
+
+  return groups.map((g) => g.map((p) => ({ id: p.id, name: p.name, gender: p.gender })));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 공통: 방 구독 시작 (사회자/참가자 공용)
+// ─────────────────────────────────────────────────────────────
+function subscribeRoom(code) {
+  teardownListeners();
+  const roomRef = doc(db, "rooms", code);
+
+  unsubRoom = onSnapshot(roomRef, (snap) => {
+    if (!snap.exists()) {
+      // 방이 사라짐 (사회자가 종료)
+      if (state.role === "participant") {
+        alert("방이 종료되었습니다.");
+      }
+      goHome();
+      return;
+    }
+    const data = snap.data();
+    state.groups = data.groups || null;
+    if (typeof data.perGroup === "number") $("#perGroup").value = data.perGroup;
+    render();
+  });
+
+  unsubParticipants = onSnapshot(collection(db, "rooms", code, "participants"), (snap) => {
+    const list = [];
+    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+    list.sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
+    state.participants = list;
+    render();
+  });
+}
+
+function counts() {
+  const c = { male: 0, female: 0, other: 0 };
+  state.participants.forEach((p) => {
+    if (p.gender === "male") c.male++;
+    else if (p.gender === "female") c.female++;
+    else c.other++;
+  });
+  return c;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 렌더링
+// ─────────────────────────────────────────────────────────────
+function render() {
+  if (state.role === "host") renderHost();
+  else if (state.role === "participant") renderWaiting();
+}
+
+function renderHost() {
+  const c = counts();
+  $("#hostCode").textContent = state.code;
+  $("#hostTotal").textContent = state.participants.length;
+  $("#hostMale").textContent = "남 " + c.male;
+  $("#hostFemale").textContent = "여 " + c.female;
+
+  const ul = $("#hostPeople");
+  ul.innerHTML = "";
+  if (state.participants.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "아직 입장한 사람이 없습니다.";
+    ul.appendChild(li);
+  } else {
+    state.participants.forEach((p) => {
+      const li = document.createElement("li");
+      const dot = document.createElement("span");
+      dot.className = "dot " + genderDotClass(p.gender);
+      li.appendChild(dot);
+      li.appendChild(document.createTextNode(p.name));
+      ul.appendChild(li);
+    });
+  }
+
+  const groupsEl = $("#hostGroups");
+  if (state.groups) {
+    renderGroupCards(groupsEl, state.groups, null);
+    $("#doReset").hidden = false;
+    $("#doMakeGroups").textContent = "다시 랜덤으로 나누기";
+  } else {
+    groupsEl.innerHTML = "";
+    $("#doReset").hidden = true;
+    $("#doMakeGroups").textContent = "랜덤으로 그룹 나누기";
+  }
+}
+
+function renderWaiting() {
+  const c = counts();
+  $("#waitTotal").textContent = state.participants.length + "명";
+  $("#waitMale").textContent = "남 " + c.male;
+  $("#waitFemale").textContent = "여 " + c.female;
+
+  const myGroupCard = $("#myGroupCard");
+  const allGroupsCard = $("#allGroupsCard");
+  if (!state.groups) {
+    myGroupCard.hidden = true;
+    allGroupsCard.hidden = true;
+    $("#waitMsg").textContent = "사회자가 그룹을 나눌 때까지 기다려 주세요…";
+    return;
+  }
+
+  $("#waitMsg").textContent = "그룹이 편성되었습니다!";
+
+  let myGroupIdx = -1;
+  state.groups.forEach((g, i) => {
+    if (g.some((p) => p.id === state.participantId)) myGroupIdx = i;
+  });
+
+  if (myGroupIdx >= 0) {
+    myGroupCard.hidden = false;
+    renderGroupCards($("#myGroup"), [state.groups[myGroupIdx]], state.participantId, myGroupIdx);
+  } else {
+    myGroupCard.hidden = true;
+  }
+
+  allGroupsCard.hidden = false;
+  renderGroupCards($("#allGroups"), state.groups, state.participantId);
+}
+
+function renderGroupCards(container, groups, meId, fixedIndexLabel) {
+  container.innerHTML = "";
+  groups.forEach((g, i) => {
+    const idx = fixedIndexLabel != null ? fixedIndexLabel : i;
+    const male = g.filter((p) => p.gender === "male").length;
+    const female = g.filter((p) => p.gender === "female").length;
+
+    const card = document.createElement("div");
+    card.className = "group";
+
+    const h4 = document.createElement("h4");
+    h4.innerHTML = `${idx + 1}조 <span class="gcount">${g.length}명 · 남${male} 여${female}</span>`;
+    card.appendChild(h4);
+
+    const ul = document.createElement("ul");
+    g.forEach((p) => {
+      const li = document.createElement("li");
+      if (meId && p.id === meId) li.className = "me";
+      const dot = document.createElement("span");
+      dot.className = "dot " + genderDotClass(p.gender);
+      li.appendChild(dot);
+      li.appendChild(document.createTextNode(p.name));
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+    container.appendChild(card);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 액션
+// ─────────────────────────────────────────────────────────────
+function goHome() {
+  teardownListeners();
+  clearSession();
+  state.role = null;
+  state.code = null;
+  state.participantId = null;
+  state.participants = [];
+  state.groups = null;
+  showView("view-home");
+}
+
+async function createRoom() {
+  $("#goHost").disabled = true;
+  try {
+    let code;
+    for (let tries = 0; tries < 25; tries++) {
+      code = String(Math.floor(1000 + Math.random() * 9000)); // 항상 4자리
+      const snap = await getDoc(doc(db, "rooms", code));
+      if (!snap.exists()) break;
+      code = null;
+    }
+    if (!code) throw new Error("빈 방 번호를 찾지 못했습니다. 다시 시도해 주세요.");
+
+    await setDoc(doc(db, "rooms", code), {
+      code,
+      groups: null,
+      perGroup: 4,
+      createdAt: serverTimestamp(),
+    });
+
+    state.role = "host";
+    state.code = code;
+    state.participantId = null;
+    saveSession();
+    $("#hostCode").textContent = code;
+    showView("view-host");
+    subscribeRoom(code);
+  } catch (e) {
+    alert("방 생성 실패: " + (e.message || e));
+  } finally {
+    $("#goHost").disabled = false;
+  }
+}
+
+async function joinRoom() {
+  const code = $("#joinCode").value.trim();
+  const name = $("#joinName").value.trim();
+  const genderEl = $('input[name="gender"]:checked');
+  const gender = genderEl ? genderEl.value : null;
+  const err = $("#joinError");
+  err.textContent = "";
+
+  if (!/^\d{4}$/.test(code)) return (err.textContent = "4자리 숫자 비밀번호를 입력해 주세요.");
+  if (!name) return (err.textContent = "이름을 입력해 주세요.");
+  if (!gender) return (err.textContent = "성별을 선택해 주세요.");
+
+  $("#doJoin").disabled = true;
+  try {
+    const roomSnap = await getDoc(doc(db, "rooms", code));
+    if (!roomSnap.exists()) {
+      err.textContent = "존재하지 않는 방입니다. 비밀번호를 확인해 주세요.";
+      return;
+    }
+
+    const pid =
+      (crypto.randomUUID && crypto.randomUUID()) ||
+      "p" + Date.now() + Math.random().toString(36).slice(2);
+
+    await setDoc(doc(db, "rooms", code, "participants", pid), {
+      name,
+      gender,
+      joinedAt: serverTimestamp(),
+    });
+
+    state.role = "participant";
+    state.code = code;
+    state.participantId = pid;
+    saveSession();
+    $("#waitWho").textContent = name + " · " + genderLabel[gender];
+    showView("view-waiting");
+    subscribeRoom(code);
+  } catch (e) {
+    err.textContent = "입장 실패: " + (e.message || e);
+  } finally {
+    $("#doJoin").disabled = false;
+  }
+}
+
+async function makeGroups() {
+  const perGroup = Number($("#perGroup").value);
+  const err = $("#hostError");
+  err.textContent = "";
+  if (!Number.isFinite(perGroup) || perGroup < 1) {
+    return (err.textContent = "그룹당 인원수를 올바르게 입력해 주세요.");
+  }
+  if (state.participants.length === 0) {
+    return (err.textContent = "입장한 참가자가 없습니다.");
+  }
+
+  const groups = makeBalancedGroups(state.participants, perGroup);
+  try {
+    await updateDoc(doc(db, "rooms", state.code), { groups, perGroup });
+  } catch (e) {
+    err.textContent = "그룹 편성 실패: " + (e.message || e);
+  }
+}
+
+async function resetGroups() {
+  try {
+    await updateDoc(doc(db, "rooms", state.code), { groups: null });
+  } catch (e) {
+    $("#hostError").textContent = "초기화 실패: " + (e.message || e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 이벤트 바인딩
+// ─────────────────────────────────────────────────────────────
+$("#homeBtn").addEventListener("click", () => {
+  if (db) goHome();
+});
+$("#goHost").addEventListener("click", createRoom);
+$("#goJoin").addEventListener("click", () => showView("view-join"));
+$("#doJoin").addEventListener("click", joinRoom);
+$("#doMakeGroups").addEventListener("click", makeGroups);
+$("#doReset").addEventListener("click", resetGroups);
+
+$("#joinCode").addEventListener("input", (e) => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
+});
+
+// ─────────────────────────────────────────────────────────────
+// 새로고침 시 세션 복원
+// ─────────────────────────────────────────────────────────────
+(async function restore() {
+  if (!db) return;
+  const raw = sessionStorage.getItem("cg");
+  if (!raw) return;
+  let saved;
+  try {
+    saved = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  if (!saved.code) return;
+
+  const snap = await getDoc(doc(db, "rooms", saved.code));
+  if (!snap.exists()) {
+    clearSession();
+    return;
+  }
+
+  if (saved.role === "host") {
+    state.role = "host";
+    state.code = saved.code;
+    $("#hostCode").textContent = saved.code;
+    showView("view-host");
+    subscribeRoom(saved.code);
+  } else if (saved.role === "participant" && saved.participantId) {
+    // 참가자 문서가 아직 있는지 확인
+    const pSnap = await getDoc(
+      doc(db, "rooms", saved.code, "participants", saved.participantId)
+    );
+    if (!pSnap.exists()) {
+      clearSession();
+      return;
+    }
+    const me = pSnap.data();
+    state.role = "participant";
+    state.code = saved.code;
+    state.participantId = saved.participantId;
+    $("#waitWho").textContent = me.name + " · " + (genderLabel[me.gender] || "");
+    showView("view-waiting");
+    subscribeRoom(saved.code);
+  }
+})();
