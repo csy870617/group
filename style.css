@@ -283,6 +283,47 @@ code {
   box-shadow: var(--ring);
 }
 
+/* 증감 스테퍼 (그룹당 인원수) */
+.stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.stepper input[type="number"] {
+  flex: 1;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* 네이티브 스피너 숨김 (커스텀 버튼 사용) */
+.stepper input[type="number"]::-webkit-outer-spin-button,
+.stepper input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.step-btn {
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  flex: 0 0 54px;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  user-select: none;
+  transition: background .15s, transform .08s, color .15s;
+}
+.step-btn:hover { background: color-mix(in srgb, var(--accent) 16%, var(--card)); }
+.step-btn:active { transform: scale(0.93); }
+.step-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
 #joinCode {
   letter-spacing: 12px;
   font-size: 1.55rem;

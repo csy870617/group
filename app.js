@@ -91,6 +91,10 @@ function makeBalancedGroups(participants, perGroup) {
   if (total === 0) return [];
 
   const size = Math.max(1, Math.floor(perGroup));
+  // 그룹당 인원수로 나눈 나머지는 "반올림"으로 처리한다.
+  //  - 나머지가 그룹 정원의 절반 이상이면 → 조 하나를 더 만들고
+  //  - 절반 미만이면 → 기존 조들에 고르게 나눠 넣는다.
+  // 예) 10명·4명/조 → round(2.5)=3개 조(4·3·3),  9명·4명/조 → round(2.25)=2개 조(5·4)
   const numGroups = Math.max(1, Math.round(total / size));
   const groups = Array.from({ length: numGroups }, () => []);
 
@@ -416,6 +420,15 @@ $("#joinClose").addEventListener("click", leaveToHome);
 $("#waitClose").addEventListener("click", leaveToHome);
 $("#goHost").addEventListener("click", createRoom);
 $("#goJoin").addEventListener("click", () => showView("view-join"));
+
+// 그룹당 인원수 증감 스테퍼
+function stepPerGroup(delta) {
+  const input = $("#perGroup");
+  const cur = parseInt(input.value, 10);
+  input.value = Math.max(1, (Number.isFinite(cur) ? cur : 1) + delta);
+}
+$("#perGroupMinus").addEventListener("click", () => stepPerGroup(-1));
+$("#perGroupPlus").addEventListener("click", () => stepPerGroup(1));
 $("#doJoin").addEventListener("click", joinRoom);
 $("#doMakeGroups").addEventListener("click", makeGroups);
 $("#doReset").addEventListener("click", resetGroups);
