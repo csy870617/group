@@ -11,10 +11,11 @@
 // ─────────────────────────────────────────────────────────────
 
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyBEsA3QUn6KP-kBAlwo5GhuBIdpSOSXMy8",
+  authDomain: "group-45a58.firebaseapp.com",
+  databaseURL: "https://group-45a58-default-rtdb.firebaseio.com",
+  projectId: "group-45a58",
+  storageBucket: "group-45a58.firebasestorage.app",
+  messagingSenderId: "869842756215",
+  appId: "1:869842756215:web:4a58143695cfa1706f9c72",
 };
