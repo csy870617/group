@@ -123,6 +123,18 @@ function makeBalancedGroups(participants, perGroup) {
   return groups.map((g) => g.map((p) => ({ id: p.id, name: p.name, gender: p.gender })));
 }
 
+// Firestore 는 "배열 안의 배열"(중첩 배열)을 지원하지 않으므로, 각 조를
+// { members: [...] } 맵으로 감싸 "맵의 배열"로 저장한다. 아래 두 함수로
+// 저장용/화면용 형태를 변환한다.
+function groupsForStore(groups) {
+  return groups.map((members) => ({ members }));
+}
+function groupsFromStore(raw) {
+  if (!raw) return null;
+  // 구버전(중첩 배열)과 신버전({members}) 모두 안전하게 처리
+  return raw.map((g) => (Array.isArray(g) ? g : g.members || []));
+}
+
 // ─────────────────────────────────────────────────────────────
 // 공통: 방 구독 시작 (사회자/참가자 공용)
 // ─────────────────────────────────────────────────────────────
@@ -140,7 +152,7 @@ function subscribeRoom(code) {
       return;
     }
     const data = snap.data();
-    state.groups = data.groups || null;
+    state.groups = groupsFromStore(data.groups);
     if (typeof data.perGroup === "number") $("#perGroup").value = data.perGroup;
     render();
   });
@@ -394,7 +406,7 @@ async function makeGroups() {
 
   const groups = makeBalancedGroups(state.participants, perGroup);
   try {
-    await updateDoc(doc(db, "rooms", state.code), { groups, perGroup });
+    await updateDoc(doc(db, "rooms", state.code), { groups: groupsForStore(groups), perGroup });
   } catch (e) {
     err.textContent = "그룹 편성 실패: " + (e.message || e);
   }
