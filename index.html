@@ -9,14 +9,14 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <h1 class="logo" id="homeBtn">⛪ 소그룹 편성</h1>
+      <h1 class="logo" id="homeBtn"><span class="logo-mark">⛪</span> 소그룹 편성</h1>
     </header>
 
     <main id="main">
       <!-- 설정 안내 (Firebase 미설정 시) -->
       <section id="view-setup" class="view">
         <div class="card">
-          <h2>⚙️ Firebase 설정이 필요합니다</h2>
+          <h2 class="section-title">⚙️ Firebase 설정이 필요합니다</h2>
           <p class="muted">
             <code>firebase-config.js</code> 파일에 본인의 Firebase 프로젝트 설정을 입력해 주세요.
             자세한 방법은 <code>README.md</code>를 참고하세요.
@@ -27,12 +27,13 @@
       <!-- 1) 시작 화면 -->
       <section id="view-home" class="view">
         <div class="card hero">
+          <div class="hero-badge">⛪</div>
           <h2>교회 소그룹 편성</h2>
-          <p class="muted">사회자가 방을 만들면 4자리 비밀번호가 생깁니다.<br />
-            참가자는 비밀번호로 입장하고, 사회자가 랜덤으로 그룹을 나눕니다.</p>
+          <p class="muted">사회자가 방을 만들면 4자리 비밀번호가 생깁니다.
+            참가자는 그 번호로 입장하고, 사회자가 남녀 비율을 맞춰 랜덤으로 그룹을 나눠 줍니다.</p>
           <div class="actions">
-            <button class="btn primary lg" id="goHost">방 만들기 (사회자)</button>
-            <button class="btn lg" id="goJoin">방 입장 (참가자)</button>
+            <button class="btn primary lg" id="goHost">➕ 방 만들기 · 사회자</button>
+            <button class="btn lg" id="goJoin">🔑 방 입장 · 참가자</button>
           </div>
         </div>
       </section>
@@ -40,11 +41,11 @@
       <!-- 2) 참가자 입장 화면 -->
       <section id="view-join" class="view">
         <div class="card">
-          <h2>방 입장</h2>
+          <h2 class="section-title">🔑 방 입장</h2>
           <label class="field">
             <span>4자리 비밀번호</span>
             <input id="joinCode" type="text" inputmode="numeric" pattern="[0-9]*"
-                   maxlength="4" placeholder="예: 1234" autocomplete="off" />
+                   maxlength="4" placeholder="••••" autocomplete="off" />
           </label>
           <label class="field">
             <span>이름</span>
@@ -59,7 +60,7 @@
           </label>
           <p class="error" id="joinError"></p>
           <div class="actions">
-            <button class="btn primary lg" id="doJoin">입장하기</button>
+            <button class="btn primary lg" id="doJoin">입장하기 →</button>
           </div>
         </div>
       </section>
@@ -68,7 +69,7 @@
       <section id="view-host" class="view">
         <div class="card">
           <div class="code-banner">
-            <span class="muted">방 비밀번호</span>
+            <span class="label">방 비밀번호</span>
             <div class="code" id="hostCode">----</div>
             <p class="muted small">참가자에게 이 4자리 번호를 알려주세요.</p>
           </div>
@@ -76,7 +77,7 @@
 
         <div class="card">
           <div class="row between">
-            <h3>입장한 사람 <span class="badge" id="hostTotal">0</span></h3>
+            <h3 class="section-title">👥 입장한 사람 <span class="badge" id="hostTotal">0</span></h3>
             <div class="counts">
               <span class="chip male" id="hostMale">남 0</span>
               <span class="chip female" id="hostFemale">여 0</span>
@@ -86,7 +87,7 @@
         </div>
 
         <div class="card">
-          <h3>그룹 나누기</h3>
+          <h3 class="section-title">🎲 그룹 나누기</h3>
           <label class="field">
             <span>그룹당 인원수</span>
             <input id="perGroup" type="number" min="1" value="4" />
@@ -119,18 +120,18 @@
         </div>
 
         <div class="card" id="myGroupCard" hidden>
-          <h3>내 그룹 🎉</h3>
+          <h3 class="section-title">🎉 내 그룹</h3>
           <div id="myGroup" class="groups"></div>
         </div>
 
         <div class="card" id="allGroupsCard" hidden>
-          <h3>전체 그룹</h3>
+          <h3 class="section-title">📋 전체 그룹</h3>
           <div id="allGroups" class="groups"></div>
         </div>
       </section>
     </main>
 
-    <footer class="foot muted small">교회 소그룹 편성 · 남녀 비율을 맞춰 랜덤 편성합니다</footer>
+    <footer class="foot">교회 소그룹 편성 · 남녀 비율을 맞춰 랜덤 편성합니다</footer>
   </div>
 
   <script type="module" src="./app.js"></script>
