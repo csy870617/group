@@ -212,11 +212,9 @@ function renderHost() {
   const groupsEl = $("#hostGroups");
   if (state.groups) {
     renderGroupCards(groupsEl, state.groups, null);
-    $("#doReset").hidden = false;
     $("#doMakeGroups").textContent = "다시 랜덤으로 나누기";
   } else {
     groupsEl.innerHTML = "";
-    $("#doReset").hidden = true;
     $("#doMakeGroups").textContent = "랜덤으로 그룹 나누기";
   }
 }
@@ -412,14 +410,6 @@ async function makeGroups() {
   }
 }
 
-async function resetGroups() {
-  try {
-    await updateDoc(doc(db, "rooms", state.code), { groups: null });
-  } catch (e) {
-    $("#hostError").textContent = "초기화 실패: " + (e.message || e);
-  }
-}
-
 // ─────────────────────────────────────────────────────────────
 // 이벤트 바인딩
 // ─────────────────────────────────────────────────────────────
@@ -467,7 +457,6 @@ async function invite() {
 $("#goInvite").addEventListener("click", invite);
 $("#doJoin").addEventListener("click", joinRoom);
 $("#doMakeGroups").addEventListener("click", makeGroups);
-$("#doReset").addEventListener("click", resetGroups);
 
 $("#joinCode").addEventListener("input", (e) => {
   e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
