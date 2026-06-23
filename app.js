@@ -233,10 +233,10 @@ function renderHost() {
   const groupsEl = $("#hostGroups");
   if (state.groups) {
     renderGroupCards(groupsEl, state.groups, null);
-    $("#doMakeGroups").textContent = "다시 랜덤으로 나누기";
+    $("#doMakeGroups").textContent = "다시 그룹 나누기";
   } else {
     groupsEl.innerHTML = "";
-    $("#doMakeGroups").textContent = "랜덤으로 그룹 나누기";
+    $("#doMakeGroups").textContent = "그룹 나누기";
   }
 }
 
@@ -489,6 +489,7 @@ async function invite() {
   }
 }
 $("#goInvite").addEventListener("click", invite);
+$("#goInviteHost").addEventListener("click", invite);
 $("#doJoin").addEventListener("click", joinRoom);
 $("#doMakeGroups").addEventListener("click", makeGroups);
 
