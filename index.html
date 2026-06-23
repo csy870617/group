@@ -29,19 +29,20 @@
         <div class="card hero">
           <div class="hero-badge">⛪</div>
           <h2>교회 소그룹 편성</h2>
-          <p class="muted">사회자가 방을 만들면 4자리 비밀번호가 생깁니다.
-            참가자는 그 번호로 입장하고, 사회자가 남녀 비율을 맞춰 랜덤으로 그룹을 나눠 줍니다.</p>
           <div class="actions">
-            <button class="btn primary lg" id="goHost">➕ 방 만들기 · 사회자</button>
-            <button class="btn lg" id="goJoin">🔑 방 입장 · 참가자</button>
+            <button class="btn primary lg" id="goHost">방 만들기 · 사회자</button>
+            <button class="btn lg" id="goJoin">방 입장 · 참가자</button>
           </div>
         </div>
       </section>
 
       <!-- 2) 참가자 입장 화면 -->
       <section id="view-join" class="view">
+        <div class="view-head">
+          <span class="view-title">방 입장</span>
+          <button class="icon-btn" id="joinClose" type="button" aria-label="닫기">✕</button>
+        </div>
         <div class="card">
-          <h2 class="section-title">🔑 방 입장</h2>
           <label class="field">
             <span>4자리 비밀번호</span>
             <input id="joinCode" type="text" inputmode="numeric" pattern="[0-9]*"
@@ -67,6 +68,10 @@
 
       <!-- 3) 사회자 화면 -->
       <section id="view-host" class="view">
+        <div class="view-head">
+          <span class="view-title">방 만들기</span>
+          <button class="icon-btn" id="hostClose" type="button" aria-label="닫기">✕</button>
+        </div>
         <div class="card">
           <div class="code-banner">
             <span class="label">방 비밀번호</span>
@@ -77,7 +82,7 @@
 
         <div class="card">
           <div class="row between">
-            <h3 class="section-title">👥 입장한 사람 <span class="badge" id="hostTotal">0</span></h3>
+            <h3 class="section-title">입장한 사람 <span class="badge" id="hostTotal">0</span></h3>
             <div class="counts">
               <span class="chip male" id="hostMale">남 0</span>
               <span class="chip female" id="hostFemale">여 0</span>
@@ -87,7 +92,7 @@
         </div>
 
         <div class="card">
-          <h3 class="section-title">🎲 그룹 나누기</h3>
+          <h3 class="section-title">그룹 나누기</h3>
           <label class="field">
             <span>그룹당 인원수</span>
             <input id="perGroup" type="number" min="1" value="4" />
@@ -103,6 +108,10 @@
 
       <!-- 4) 참가자 대기/결과 화면 -->
       <section id="view-waiting" class="view">
+        <div class="view-head">
+          <span class="view-title">참가자</span>
+          <button class="icon-btn" id="waitClose" type="button" aria-label="닫기">✕</button>
+        </div>
         <div class="card">
           <div class="row between">
             <h3 id="waitTitle">입장 완료!</h3>
@@ -120,12 +129,12 @@
         </div>
 
         <div class="card" id="myGroupCard" hidden>
-          <h3 class="section-title">🎉 내 그룹</h3>
+          <h3 class="section-title">내 그룹</h3>
           <div id="myGroup" class="groups"></div>
         </div>
 
         <div class="card" id="allGroupsCard" hidden>
-          <h3 class="section-title">📋 전체 그룹</h3>
+          <h3 class="section-title">전체 그룹</h3>
           <div id="allGroups" class="groups"></div>
         </div>
       </section>
