@@ -21,9 +21,18 @@ import { firebaseConfig } from "./firebase-config.js";
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+// 서브 화면(입장/사회자/대기)에 들어가면 history 항목을 하나 쌓아,
+// 브라우저 뒤로 가기 시 페이지가 닫히지 않고 홈으로 돌아오게 한다.
+let navPushed = false;
+const SUB_VIEWS = ["view-join", "view-host", "view-waiting"];
+
 function showView(id) {
   $$(".view").forEach((v) => v.classList.remove("active"));
   $("#" + id).classList.add("active");
+  if (SUB_VIEWS.includes(id) && !navPushed) {
+    history.pushState({ sub: true }, "");
+    navPushed = true;
+  }
 }
 
 const genderLabel = { male: "남", female: "여", other: "기타" };
@@ -159,7 +168,7 @@ function subscribeRoom(code) {
         if (state.role === "participant") {
           alert("방이 종료되었습니다.");
         }
-        goHome();
+        goHomeNav();
         return;
       }
       const data = snap.data();
@@ -316,6 +325,21 @@ function goHome() {
   showView("view-home");
 }
 
+// 홈으로 이동: 뒤로 가기 history 항목이 쌓여 있으면 history.back()으로
+// 소비하여 popstate 핸들러가 처리하게 하고, 없으면 바로 홈으로 간다.
+function goHomeNav() {
+  if (navPushed) history.back();
+  else goHome();
+}
+
+// 브라우저 뒤로 가기 → 페이지를 닫지 않고 홈 화면으로
+window.addEventListener("popstate", () => {
+  if (navPushed) {
+    navPushed = false;
+    goHome();
+  }
+});
+
 // 방 유지 시간 (이 시간이 지나면 Firestore TTL 로 자동 삭제되어 코드가 재사용됨)
 const ROOM_TTL_HOURS = 12;
 
@@ -448,7 +472,7 @@ async function makeGroups() {
 // 이벤트 바인딩
 // ─────────────────────────────────────────────────────────────
 function leaveToHome() {
-  if (db) goHome();
+  if (db) goHomeNav();
 }
 $("#homeBtn").addEventListener("click", leaveToHome);
 $("#hostClose").addEventListener("click", leaveToHome);
