@@ -23,7 +23,11 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 // 서브 화면(입장/사회자/대기)에 들어가면 history 항목을 하나 쌓아,
 // 브라우저 뒤로 가기 시 페이지가 닫히지 않고 홈으로 돌아오게 한다.
-let navPushed = false;
+// 새로고침 시에도 브라우저가 유지하는 history.state 를 확인해, 이미
+// 서브 화면에 대해 push된 상태라면 다시 push하지 않는다. (그렇지 않으면
+// 서브 화면에서 새로고침을 반복할 때마다 history 항목이 계속 쌓여
+// 뒤로 가기를 여러 번 눌러야 홈으로 나가지는 문제가 생긴다.)
+let navPushed = !!(history.state && history.state.sub);
 const SUB_VIEWS = ["view-join", "view-host", "view-waiting"];
 
 function showView(id) {
@@ -45,9 +49,15 @@ let db = null;
 if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
   showView("view-setup");
 } else {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  showView("view-home");
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    showView("view-home");
+  } catch (e) {
+    // 초기화 실패 시 빈 화면 대신 기존 설정 안내 화면으로 대체
+    console.error("Firebase 초기화 실패:", e);
+    showView("view-setup");
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -188,7 +198,11 @@ function subscribeRoom(code) {
     (snap) => {
       const list = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
+      // joinedAt 은 serverTimestamp() 라서 서버 확인 전까지 로컬에서는 null.
+      // 0 으로 취급하면 방금 입장한 사람이 순간적으로 맨 앞으로 정렬되었다가
+      // 서버 확인 후 다시 뒤로 이동하는 깜빡임이 생기므로, 아직 확인되지
+      // 않은 값은 "가장 최근"으로 보고 맨 뒤로 정렬한다.
+      list.sort((a, b) => (a.joinedAt?.seconds ?? Infinity) - (b.joinedAt?.seconds ?? Infinity));
       state.participants = list;
       render();
     },
