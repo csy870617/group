@@ -507,12 +507,15 @@ $("#perGroupPlus").addEventListener("click", () => stepPerGroup(1));
 // 초대하기 — 기기 기본 공유(Web Share API), 미지원 시 링크 복사로 폴백
 const INVITE_URL = "https://csy870617.github.io/group/";
 async function invite() {
+  // 방이 만들어진 상태면 링크에 비밀번호를 담아, 링크를 열면 바로
+  // 입장하기 화면에 비밀번호가 입력되어 있도록 한다.
+  const inviteUrl = state.code ? `${INVITE_URL}?code=${state.code}` : INVITE_URL;
   const text = state.code
-    ? `교회 소그룹 편성에 참여하세요!\n방 비밀번호: ${state.code}`
+    ? `교회 소그룹 편성에 참여하세요!\n방 비밀번호: ${state.code}\n입장하기 후 비밀번호를 입력하세요.`
     : "교회 소그룹 편성에 참여하세요!";
   try {
     if (navigator.share) {
-      await navigator.share({ title: "교회 소그룹 편성", text, url: INVITE_URL });
+      await navigator.share({ title: "교회 소그룹 편성", text, url: inviteUrl });
       return;
     }
   } catch (e) {
@@ -520,10 +523,10 @@ async function invite() {
   }
   // 공유 API 미지원 → 클립보드 복사, 그것도 안 되면 새 창으로 링크 열기
   try {
-    await navigator.clipboard.writeText(`${text}\n${INVITE_URL}`);
-    alert("초대 내용이 복사되었습니다.\n" + INVITE_URL);
+    await navigator.clipboard.writeText(`${text}\n${inviteUrl}`);
+    alert("초대 내용이 복사되었습니다.\n" + inviteUrl);
   } catch {
-    window.open(INVITE_URL, "_blank", "noopener");
+    window.open(inviteUrl, "_blank", "noopener");
   }
 }
 $("#goInvite").addEventListener("click", invite);
@@ -536,25 +539,36 @@ $("#joinCode").addEventListener("input", (e) => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// 초대 링크로 들어온 경우 (?code=1234) 입장하기 화면에 비밀번호 미리 채우기
+// ─────────────────────────────────────────────────────────────
+function prefillJoinFromURL() {
+  const code = new URLSearchParams(location.search).get("code");
+  if (code && /^\d{4}$/.test(code)) {
+    $("#joinCode").value = code;
+    showView("view-join");
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // 새로고침 시 세션 복원
 // ─────────────────────────────────────────────────────────────
 (async function restore() {
   if (!db) return;
   const raw = sessionStorage.getItem("cg");
-  if (!raw) return;
+  if (!raw) return prefillJoinFromURL();
   let saved;
   try {
     saved = JSON.parse(raw);
   } catch {
-    return;
+    return prefillJoinFromURL();
   }
-  if (!saved.code) return;
+  if (!saved.code) return prefillJoinFromURL();
 
   try {
     const snap = await getDoc(doc(db, "rooms", saved.code));
     if (!snap.exists()) {
       clearSession();
-      return;
+      return prefillJoinFromURL();
     }
 
     if (saved.role === "host") {
@@ -570,7 +584,7 @@ $("#joinCode").addEventListener("input", (e) => {
       );
       if (!pSnap.exists()) {
         clearSession();
-        return;
+        return prefillJoinFromURL();
       }
       const me = pSnap.data();
       state.role = "participant";
@@ -582,6 +596,7 @@ $("#joinCode").addEventListener("input", (e) => {
     } else {
       // 역할/식별자가 불완전한 깨진 세션 → 정리
       clearSession();
+      prefillJoinFromURL();
     }
   } catch (e) {
     console.error("세션 복원 실패:", e);
