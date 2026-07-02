@@ -488,8 +488,12 @@ async function makeGroups() {
 function leaveToHome() {
   if (db) goHomeNav();
 }
+// 사회자 화면 닫기는 방 편성이 날아갈 수 있으므로 한 번 더 확인한다.
+function closeHostRoom() {
+  if (db && confirm("방을 닫으시겠습니까?")) goHomeNav();
+}
 $("#homeBtn").addEventListener("click", leaveToHome);
-$("#hostClose").addEventListener("click", leaveToHome);
+$("#hostClose").addEventListener("click", closeHostRoom);
 $("#joinClose").addEventListener("click", leaveToHome);
 $("#waitClose").addEventListener("click", leaveToHome);
 $("#goHost").addEventListener("click", createRoom);
@@ -529,7 +533,6 @@ async function invite() {
     window.open(inviteUrl, "_blank", "noopener");
   }
 }
-$("#goInvite").addEventListener("click", invite);
 $("#goInviteHost").addEventListener("click", invite);
 $("#doJoin").addEventListener("click", joinRoom);
 $("#doMakeGroups").addEventListener("click", makeGroups);
