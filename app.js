@@ -329,6 +329,12 @@ function renderGroupCards(container, groups, meId, fixedIndexLabel) {
 // 액션
 // ─────────────────────────────────────────────────────────────
 function goHome() {
+  // 참가자가 명시적으로 나가면 내 참가자 문서를 정리한다. 남겨두면
+  // 다시 입장할 때 문서가 하나 더 생겨 인원수·그룹에 유령 참가자가
+  // 누적된다. (방이 이미 종료된 경우 등 삭제 실패는 무시)
+  if (db && state.role === "participant" && state.code && state.participantId) {
+    deleteDoc(doc(db, "rooms", state.code, "participants", state.participantId)).catch(() => {});
+  }
   teardownListeners();
   clearSession();
   state.role = null;
@@ -346,11 +352,17 @@ function goHomeNav() {
   else goHome();
 }
 
-// 브라우저 뒤로 가기 → 페이지를 닫지 않고 홈 화면으로
-window.addEventListener("popstate", () => {
-  if (navPushed) {
+// 브라우저 뒤로 가기 → 페이지를 닫지 않고 홈 화면으로.
+// 앞으로 가기로 서브 화면용 history 항목에 다시 진입할 수도 있으므로,
+// event.state 를 기준으로 navPushed 를 동기화해 플래그와 실제 히스토리가
+// 어긋나(항목 중복 push) 지 않게 한다.
+window.addEventListener("popstate", (e) => {
+  const inSub = !!(e.state && e.state.sub);
+  if (navPushed && !inSub) {
     navPushed = false;
     goHome();
+  } else {
+    navPushed = inSub;
   }
 });
 
@@ -492,7 +504,12 @@ function leaveToHome() {
 function closeHostRoom() {
   if (db && confirm("방을 닫으시겠습니까?")) goHomeNav();
 }
-$("#homeBtn").addEventListener("click", leaveToHome);
+// 로고(홈 버튼)도 사회자 화면에서는 ✕ 닫기와 같은 확인창을 거친다.
+// (확인 없이 나가면 세션이 지워져 그 방의 사회자 화면으로 못 돌아온다)
+$("#homeBtn").addEventListener("click", () => {
+  if (state.role === "host") closeHostRoom();
+  else leaveToHome();
+});
 $("#hostClose").addEventListener("click", closeHostRoom);
 $("#joinClose").addEventListener("click", leaveToHome);
 $("#waitClose").addEventListener("click", leaveToHome);
