@@ -33,10 +33,49 @@ const SUB_VIEWS = ["view-join", "view-host", "view-waiting"];
 function showView(id) {
   $$(".view").forEach((v) => v.classList.remove("active"));
   $("#" + id).classList.add("active");
+  document.body.dataset.view = id;
   if (SUB_VIEWS.includes(id) && !navPushed) {
     history.pushState({ sub: true }, "");
     navPushed = true;
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 라이트/다크 테마 (초기값은 index.html 의 인라인 스크립트가 정함)
+// ─────────────────────────────────────────────────────────────
+const THEME_KEY = "theme";
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+}
+
+function storedTheme() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return t === "light" || t === "dark" ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+
+$("#themeToggle").addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch {}
+});
+
+// 직접 고른 적이 없으면 기기 설정이 바뀔 때 따라간다
+const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+if (darkQuery && darkQuery.addEventListener) {
+  darkQuery.addEventListener("change", (e) => {
+    if (!storedTheme()) applyTheme(e.matches ? "dark" : "light");
+  });
 }
 
 const genderLabel = { male: "남", female: "여", other: "기타" };
@@ -337,6 +376,7 @@ function goHome() {
   }
   teardownListeners();
   clearSession();
+  closeQR();
   state.role = null;
   state.code = null;
   state.participantId = null;
@@ -527,10 +567,12 @@ $("#perGroupPlus").addEventListener("click", () => stepPerGroup(1));
 
 // 초대하기 — 기기 기본 공유(Web Share API), 미지원 시 링크 복사로 폴백
 const INVITE_URL = "https://csy870617.github.io/group/";
+// 방이 만들어진 상태면 링크에 비밀번호를 담아, 링크를 열면 바로
+// 입장하기 화면에 비밀번호가 입력되어 있도록 한다.
+const inviteUrlFor = (code) => (code ? `${INVITE_URL}?code=${code}` : INVITE_URL);
+
 async function invite() {
-  // 방이 만들어진 상태면 링크에 비밀번호를 담아, 링크를 열면 바로
-  // 입장하기 화면에 비밀번호가 입력되어 있도록 한다.
-  const inviteUrl = state.code ? `${INVITE_URL}?code=${state.code}` : INVITE_URL;
+  const inviteUrl = inviteUrlFor(state.code);
   const text = state.code
     ? `교회 소그룹 편성에 참여하세요!\n방 비밀번호: ${state.code}\n입장하기 후 비밀번호를 입력하세요.`
     : "교회 소그룹 편성에 참여하세요!";
@@ -551,6 +593,37 @@ async function invite() {
   }
 }
 $("#goInviteHost").addEventListener("click", invite);
+
+// QR 생성 — 초대 링크(비밀번호 포함)를 QR코드로 보여 준다. 참가자가
+// 휴대폰 카메라로 찍으면 비밀번호가 입력된 입장 화면이 바로 열린다.
+function showQR() {
+  if (!state.code) return;
+  if (typeof window.qrcode !== "function") {
+    alert("QR코드를 만들 수 없습니다. 새로고침 후 다시 시도해 주세요.");
+    return;
+  }
+  const qr = window.qrcode(0, "M");
+  qr.addData(inviteUrlFor(state.code));
+  qr.make();
+  $("#qrImg").src = qr.createDataURL(8, 16);
+  $("#qrCode").textContent = state.code;
+  const dlg = $("#qrDialog");
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+function closeQR() {
+  const dlg = $("#qrDialog");
+  if (!dlg.hasAttribute("open")) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+$("#showQR").addEventListener("click", showQR);
+$("#qrClose").addEventListener("click", closeQR);
+// 대화상자 바깥(어두운 배경)을 누르면 닫기
+$("#qrDialog").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeQR();
+});
+
 $("#doJoin").addEventListener("click", joinRoom);
 $("#doMakeGroups").addEventListener("click", makeGroups);
 
