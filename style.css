@@ -86,6 +86,7 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh; /* 모바일 주소창 높이를 뺀 실제 화면 높이 (미지원 브라우저는 위 값 사용) */
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
     "Apple SD Gothic Neo", "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
   color: var(--ink);
@@ -115,6 +116,7 @@ code {
   margin: 0 auto;
   padding: 0 16px calc(40px + env(safe-area-inset-bottom));
   min-height: 100vh;
+  min-height: 100dvh; /* 모바일 주소창 높이를 뺀 실제 화면 높이 (미지원 브라우저는 위 값 사용) */
   display: flex;
   flex-direction: column;
 }
@@ -146,7 +148,7 @@ code {
   cursor: pointer;
   border-radius: 12px;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity .2s;
+  transition: opacity .2s, visibility .2s;
 }
 .brand:focus-visible { outline: none; box-shadow: var(--ring); }
 .brand-mark {
@@ -160,9 +162,11 @@ code {
 .brand-mark svg { width: 18px; height: 18px; fill: #fff; }
 
 /* 홈 화면에서는 큰 타이틀과 겹치므로 상단 브랜드를 숨긴다 */
+/* (visibility 로 숨겨야 키보드 탭 순서에서도 빠진다) */
 body[data-view="view-home"] .brand,
 body[data-view="view-setup"] .brand {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 

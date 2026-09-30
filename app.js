@@ -48,7 +48,8 @@ const THEME_KEY = "theme";
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  if (meta && bg) meta.content = bg;
 }
 
 function storedTheme() {
@@ -123,14 +124,28 @@ function teardownListeners() {
 // ─────────────────────────────────────────────────────────────
 // 세션 저장 (새로고침 대비)
 // ─────────────────────────────────────────────────────────────
+// 쿠키·저장소를 차단한 브라우저(일부 인앱 브라우저, Safari 쿠키 차단 등)에서는
+// sessionStorage 에 접근하기만 해도 예외가 난다. 새로고침 복원은 부가 기능이므로
+// 실패해도 방 생성·입장·나가기 흐름이 끊기지 않도록 예외를 삼킨다.
 function saveSession() {
-  sessionStorage.setItem(
-    "cg",
-    JSON.stringify({ role: state.role, code: state.code, participantId: state.participantId })
-  );
+  try {
+    sessionStorage.setItem(
+      "cg",
+      JSON.stringify({ role: state.role, code: state.code, participantId: state.participantId })
+    );
+  } catch {}
 }
 function clearSession() {
-  sessionStorage.removeItem("cg");
+  try {
+    sessionStorage.removeItem("cg");
+  } catch {}
+}
+function loadSession() {
+  try {
+    return sessionStorage.getItem("cg");
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -647,7 +662,7 @@ function prefillJoinFromURL() {
 // ─────────────────────────────────────────────────────────────
 (async function restore() {
   if (!db) return;
-  const raw = sessionStorage.getItem("cg");
+  const raw = loadSession();
   if (!raw) return prefillJoinFromURL();
   let saved;
   try {
